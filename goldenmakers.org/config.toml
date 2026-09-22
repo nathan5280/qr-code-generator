@@ -1,0 +1,20 @@
+# Copy this file to config.toml in the directory you'll pass to qr_gen.py.
+# The generated image is written into that same directory.
+
+[qr]
+url = "goldenmakers.org"
+error_correction = "M"   # L, M, Q, H -- higher survives more damage/dirt but makes the code denser
+version = "auto"         # "auto" picks the smallest version (module count/density) that fits the url, or set 1-40
+border = 0                # quiet zone width in modules -- 4 is the QR spec's minimum, don't go lower
+
+[image]
+dimensions = 600            # output image is square, this many pixels per side
+format = "png"               # svg, png, or jpg
+foreground_color = "blue"   # any CSS color name or hex code, e.g. "#1a1a1a"
+background_color = "grey"   # same as above, or "transparent" (svg/png only -- jpg has no alpha channel)
+output_filename = "qrcode"   # written as <output_filename>.<format> in this directory
+
+[padding]
+enabled = true     # set true for a decorative "more QR content" ring outside the quiet zone
+width = 20         # extra modules of fake pattern beyond the quiet zone (ignored by scanners)
+seed = 42          # controls the fake pattern so re-running with the same config reproduces the same image
