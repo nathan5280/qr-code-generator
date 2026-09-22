@@ -23,7 +23,20 @@ cp config.example.toml output/my-qr-code/config.toml
 python qr_gen.py output/my-qr-code
 ```
 
-The image is written alongside config.toml in that directory.
+Images are written alongside config.toml in that directory.
+
+## Generating a family of QR codes
+
+`dimensions`, `format`, and `[padding].enabled` can each be a single value
+or a list. When any are lists, every combination is generated in one run
+-- e.g. `format = ["svg", "png"]` with `dimensions = [300, 600]` writes 4
+files. This is handy for keeping a matched set (same URL, different sizes
+and formats) together in one directory.
+
+Every generated file is named
+`<base>-<error_correction>-<dimensions>-<padded|not_padded>.<format>` so
+the family stays distinguishable and collision-free. `<base>` is
+`output_filename` if you set one, otherwise a slug of the URL.
 
 ## Config reference
 
@@ -35,12 +48,12 @@ See `config.example.toml` for the full commented template. Summary:
 |             | `error_correction`  | `L`/`M`/`Q`/`H` -- higher tolerates more damage but denser code          |
 |             | `version`           | `"auto"` or `1`-`40` -- QR grid density/data capacity, not pixel size    |
 |             | `border`            | Quiet zone width in modules (spec minimum is 4)                          |
-| `[image]`   | `dimensions`        | Output pixel size (square)                                               |
-|             | `format`            | `svg`, `png`, or `jpg`                                                   |
+| `[image]`   | `dimensions`        | Output pixel size (square) -- value or list                              |
+|             | `format`            | `svg`, `png`, `jpg` -- value or list                                     |
 |             | `foreground_color`  | Color name or hex code                                                   |
 |             | `background_color`  | Color name, hex code, or `"transparent"` (svg/png only)                  |
-|             | `output_filename`   | Base filename, written as `<name>.<format>`                              |
-| `[padding]` | `enabled`           | Turn on the decorative fake-QR-content ring outside the quiet zone       |
+|             | `output_filename`   | Base filename; blank auto-generates one from the URL                     |
+| `[padding]` | `enabled`           | Turn on the decorative fake-QR-content ring outside the quiet zone -- value or list |
 |             | `width`             | Width of that ring, in modules                                           |
 |             | `seed`              | RNG seed so the fake pattern is reproducible across runs                 |
 

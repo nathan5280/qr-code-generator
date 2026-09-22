@@ -11,6 +11,7 @@ to the config file.
 
 import argparse
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -77,6 +78,22 @@ def build_module_grid(url, error_correction, version, border, padding_width, see
             else:
                 grid[row][col] = core[row - offset][col - offset]
     return grid
+
+
+def as_list(value):
+    """Let a config value be either a single value or a list of them."""
+    return value if isinstance(value, list) else [value]
+
+
+def slugify_url(url: str) -> str:
+    """Turn a URL into a filesystem-safe name, e.g. https://x.com/me -> https-x-com-me."""
+    return re.sub(r"[^A-Za-z0-9]+", "-", url).strip("-")
+
+
+def build_output_path(directory, output_filename, url, error_correction, dimension, padding_enabled, fmt):
+    base = output_filename if output_filename else slugify_url(url)
+    padded_label = "padded" if padding_enabled else "not_padded"
+    return directory / f"{base}-{error_correction}-{dimension}-{padded_label}.{fmt}"
 
 
 def resolve_color(value: str, need_alpha: bool):
@@ -153,35 +170,44 @@ def main():
     version = qr_cfg.get("version", "auto")
     border = qr_cfg.get("border", 4)  # 4 modules is the QR spec's standard minimum quiet zone
 
-    dimensions = image_cfg.get("dimensions", 600)
-    fmt = image_cfg.get("format", "svg").lower()
+    dimensions_list = as_list(image_cfg.get("dimensions", 600))
+    format_list = [f.lower() for f in as_list(image_cfg.get("format", "svg"))]
     fg_color = image_cfg.get("foreground_color", "black")
     bg_color = image_cfg.get("background_color", "white")
-    output_filename = image_cfg.get("output_filename", "qrcode")
+    output_filename = image_cfg.get("output_filename", "")
 
-    padding_enabled = padding_cfg.get("enabled", False)
-    padding_width = padding_cfg.get("width", 0) if padding_enabled else 0
+    padding_enabled_list = as_list(padding_cfg.get("enabled", False))
+    padding_width = padding_cfg.get("width", 0)
     seed = padding_cfg.get("seed", 0)
 
-    grid = build_module_grid(url, error_correction, version, border, padding_width, seed)
-    output_path = args.directory / f"{output_filename}.{fmt}"
+    # The padding ring is the only thing that changes the module grid
+    # itself -- dimensions and format are just how that same grid gets
+    # scaled and drawn -- so it's only rebuilt once per padding variant.
+    for padding_enabled in padding_enabled_list:
+        grid = build_module_grid(
+            url, error_correction, version, border, padding_width if padding_enabled else 0, seed
+        )
+        for dimension in dimensions_list:
+            for fmt in format_list:
+                output_path = build_output_path(
+                    args.directory, output_filename, url, error_correction, dimension, padding_enabled, fmt
+                )
+                if fmt == "svg":
+                    output_path.write_text(render_svg(grid, dimension, fg_color, bg_color))
+                elif fmt in ("png", "jpg", "jpeg"):
+                    need_alpha = fmt == "png"
+                    try:
+                        fg = resolve_color(fg_color, need_alpha)
+                        bg = resolve_color(bg_color, need_alpha)
+                    except ValueError as exc:
+                        sys.exit(f"config.toml: {exc}")
+                    mode = "RGBA" if need_alpha else "RGB"
+                    img = render_raster(grid, dimension, fg, bg, mode)
+                    img.save(output_path, format="PNG" if fmt == "png" else "JPEG")
+                else:
+                    sys.exit(f"config.toml: [image].format must be svg, png, or jpg (got {fmt!r})")
 
-    if fmt == "svg":
-        output_path.write_text(render_svg(grid, dimensions, fg_color, bg_color))
-    elif fmt in ("png", "jpg", "jpeg"):
-        need_alpha = fmt == "png"
-        try:
-            fg = resolve_color(fg_color, need_alpha)
-            bg = resolve_color(bg_color, need_alpha)
-        except ValueError as exc:
-            sys.exit(f"config.toml: {exc}")
-        mode = "RGBA" if need_alpha else "RGB"
-        img = render_raster(grid, dimensions, fg, bg, mode)
-        img.save(output_path, format="PNG" if fmt == "png" else "JPEG")
-    else:
-        sys.exit(f"config.toml: [image].format must be svg, png, or jpg (got {fmt!r})")
-
-    print(f"Wrote {output_path}")
+                print(f"Wrote {output_path}")
 
 
 if __name__ == "__main__":
