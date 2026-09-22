@@ -27,11 +27,12 @@ Images are written alongside config.toml in that directory.
 
 ## Generating a family of QR codes
 
-`dimensions`, `format`, and `[padding].enabled` can each be a single value
-or a list. When any are lists, every combination is generated in one run
--- e.g. `format = ["svg", "png"]` with `dimensions = [300, 600]` writes 4
-files. This is handy for keeping a matched set (same URL, different sizes
-and formats) together in one directory.
+`error_correction`, `dimensions`, `format`, and `[padding].enabled` can
+each be a single value or a list. When any are lists, every combination
+is generated in one run -- e.g. `format = ["svg", "png"]` with
+`dimensions = [300, 600]` writes 4 files. This is handy for keeping a
+matched set (same URL, different sizes and formats) together in one
+directory.
 
 Every generated file is named
 `<base>-<error_correction>-<dimensions>-<padded|not_padded>.<format>` so
@@ -45,7 +46,7 @@ See `config.example.toml` for the full commented template. Summary:
 | Section     | Key                 | Meaning                                                                 |
 |-------------|---------------------|--------------------------------------------------------------------------|
 | `[qr]`      | `url`               | The URL/text to encode                                                   |
-|             | `error_correction`  | `L`/`M`/`Q`/`H` -- higher tolerates more damage but denser code          |
+|             | `error_correction`  | `L`/`M`/`Q`/`H` -- higher tolerates more damage but denser code -- value or list |
 |             | `version`           | `"auto"` or `1`-`40` -- QR grid density/data capacity, not pixel size    |
 |             | `border`            | Quiet zone width in modules (spec minimum is 4)                          |
 | `[image]`   | `dimensions`        | Output pixel size (square) -- value or list                              |

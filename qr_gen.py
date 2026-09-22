@@ -164,9 +164,10 @@ def main():
     if "url" not in qr_cfg:
         sys.exit("config.toml: [qr].url is required")
     url = qr_cfg["url"]
-    error_correction = qr_cfg.get("error_correction", "M").upper()
-    if error_correction not in ERROR_CORRECTION_LEVELS:
-        sys.exit(f"config.toml: [qr].error_correction must be one of L, M, Q, H (got {error_correction!r})")
+    error_correction_list = [e.upper() for e in as_list(qr_cfg.get("error_correction", "M"))]
+    for error_correction in error_correction_list:
+        if error_correction not in ERROR_CORRECTION_LEVELS:
+            sys.exit(f"config.toml: [qr].error_correction must be one of L, M, Q, H (got {error_correction!r})")
     version = qr_cfg.get("version", "auto")
     border = qr_cfg.get("border", 4)  # 4 modules is the QR spec's standard minimum quiet zone
 
@@ -180,34 +181,36 @@ def main():
     padding_width = padding_cfg.get("width", 0)
     seed = padding_cfg.get("seed", 0)
 
-    # The padding ring is the only thing that changes the module grid
-    # itself -- dimensions and format are just how that same grid gets
-    # scaled and drawn -- so it's only rebuilt once per padding variant.
-    for padding_enabled in padding_enabled_list:
-        grid = build_module_grid(
-            url, error_correction, version, border, padding_width if padding_enabled else 0, seed
-        )
-        for dimension in dimensions_list:
-            for fmt in format_list:
-                output_path = build_output_path(
-                    args.directory, output_filename, url, error_correction, dimension, padding_enabled, fmt
-                )
-                if fmt == "svg":
-                    output_path.write_text(render_svg(grid, dimension, fg_color, bg_color))
-                elif fmt in ("png", "jpg", "jpeg"):
-                    need_alpha = fmt == "png"
-                    try:
-                        fg = resolve_color(fg_color, need_alpha)
-                        bg = resolve_color(bg_color, need_alpha)
-                    except ValueError as exc:
-                        sys.exit(f"config.toml: {exc}")
-                    mode = "RGBA" if need_alpha else "RGB"
-                    img = render_raster(grid, dimension, fg, bg, mode)
-                    img.save(output_path, format="PNG" if fmt == "png" else "JPEG")
-                else:
-                    sys.exit(f"config.toml: [image].format must be svg, png, or jpg (got {fmt!r})")
+    # error_correction and the padding ring are the only things that
+    # change the module grid itself -- dimensions and format are just
+    # how that same grid gets scaled and drawn -- so the grid is only
+    # rebuilt once per (error_correction, padding) combination.
+    for error_correction in error_correction_list:
+        for padding_enabled in padding_enabled_list:
+            grid = build_module_grid(
+                url, error_correction, version, border, padding_width if padding_enabled else 0, seed
+            )
+            for dimension in dimensions_list:
+                for fmt in format_list:
+                    output_path = build_output_path(
+                        args.directory, output_filename, url, error_correction, dimension, padding_enabled, fmt
+                    )
+                    if fmt == "svg":
+                        output_path.write_text(render_svg(grid, dimension, fg_color, bg_color))
+                    elif fmt in ("png", "jpg", "jpeg"):
+                        need_alpha = fmt == "png"
+                        try:
+                            fg = resolve_color(fg_color, need_alpha)
+                            bg = resolve_color(bg_color, need_alpha)
+                        except ValueError as exc:
+                            sys.exit(f"config.toml: {exc}")
+                        mode = "RGBA" if need_alpha else "RGB"
+                        img = render_raster(grid, dimension, fg, bg, mode)
+                        img.save(output_path, format="PNG" if fmt == "png" else "JPEG")
+                    else:
+                        sys.exit(f"config.toml: [image].format must be svg, png, or jpg (got {fmt!r})")
 
-                print(f"Wrote {output_path}")
+                    print(f"Wrote {output_path}")
 
 
 if __name__ == "__main__":

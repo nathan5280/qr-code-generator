@@ -1,14 +1,14 @@
 # Copy this file to config.toml in the directory you'll pass to qr_gen.py.
 # Generated images are written into that same directory.
 #
-# dimensions, format, and padding.enabled can each be a single value or a
-# list -- when any are lists, qr_gen.py generates every combination (e.g.
-# 2 formats x 2 dimensions x 2 padding settings = 8 files) so you can build
-# a matched family of QR codes from one config.
+# error_correction, dimensions, format, and padding.enabled can each be a
+# single value or a list -- when any are lists, qr_gen.py generates every
+# combination (e.g. 2 formats x 2 dimensions x 2 padding settings = 8
+# files) so you can build a matched family of QR codes from one config.
 
 [qr]
 url = "https://example.com"
-error_correction = "M"   # L, M, Q, H -- higher survives more damage/dirt but makes the code denser
+error_correction = "M"   # L, M, Q, H -- higher survives more damage/dirt but makes the code denser -- or a list, e.g. ["M", "H"]
 version = "auto"         # "auto" picks the smallest version (module count/density) that fits the url, or set 1-40
 border = 4                # quiet zone width in modules -- 4 is the QR spec's minimum, don't go lower
 
