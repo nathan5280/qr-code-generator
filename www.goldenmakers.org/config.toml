@@ -1,0 +1,32 @@
+# Copy this file to config.toml in the directory you'll pass to qr_gen.py.
+# Generated images are written into that same directory.
+#
+# error_correction, dimensions, format, and padding.enabled can each be a
+# single value or a list -- when any are lists, qr_gen.py generates every
+# combination (e.g. 2 formats x 2 dimensions x 2 padding settings = 8
+# files) so you can build a matched family of QR codes from one config.
+
+[qr]
+url = "goldenmakers.org"
+error_correction = ["M", "Q", "H"]   # L, M, Q, H -- higher survives more damage/dirt but makes the code denser -- or a list, e.g. ["M", "H"]
+version = "auto"         # "auto" picks the smallest version (module count/density) that fits the url, or set 1-40
+border = 0                # quiet zone width in modules -- 4 is the QR spec's minimum, don't go lower
+
+[image]
+dimensions = [600, 1200]            # output image is square, this many pixels per side -- or a list, e.g. [300, 600, 1200]
+format = ["svg", "png"]                # svg, png, jpg -- or a list, e.g. ["svg", "png"]
+foreground_color = "black"   # any CSS color name or hex code, e.g. "#1a1a1a"
+background_color = "transparent"   # same as above, or "transparent" (svg/png only -- jpg has no alpha channel)
+
+# Base filename. Blank ("") auto-generates one from the URL; either way,
+# every file is written as <base>-<error_correction>-<dimensions>-<padded|not_padded>.<format>
+# so a whole family can share one directory without collisions, e.g.:
+#   https-example-com-M-600-not_padded.svg
+#   https-example-com-M-600-not_padded.png
+#   https-example-com-M-1200-not_padded.png
+output_filename = ""
+
+[padding]
+enabled = [true, false]   # set true for a decorative "more QR content" ring outside the quiet zone -- or a list, e.g. [true, false]
+width = 20          # extra modules of fake pattern beyond the quiet zone (ignored by scanners)
+seed = 42          # controls the fake pattern so re-running with the same config reproduces the same image
