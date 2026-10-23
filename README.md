@@ -1,7 +1,8 @@
 # qr-code-generator
 
 Generates SVG/PNG/JPG QR codes from a TOML config file. The config file
-lives in the same directory as its generated output.
+lives in the same directory its generated output is written to (an
+`output/` subdirectory, gitignored).
 
 ## Setup (run once)
 
@@ -23,7 +24,9 @@ cp config.example.toml output/my-qr-code/config.toml
 python qr_gen.py output/my-qr-code
 ```
 
-Images are written alongside config.toml in that directory.
+Images are written to an `output/` subdirectory next to config.toml --
+`output/` is gitignored, so only the config (the "source") gets tracked,
+not the generated ("compiled") images.
 
 ## Generating a family of QR codes
 
@@ -35,9 +38,22 @@ matched set (same URL, different sizes and formats) together in one
 directory.
 
 Every generated file is named
-`<base>-<error_correction>-<dimensions>-<padded|not_padded>.<format>` so
-the family stays distinguishable and collision-free. `<base>` is
+`<base>-<error_correction>-<dimensions>-<padded|not_padded>[-inverted].<format>`
+so the family stays distinguishable and collision-free. `<base>` is
 `output_filename` if you set one, otherwise a slug of the URL.
+
+## Inverted SVGs for cutting/engraving (`isvg`)
+
+Add `"isvg"` to `format` to also generate an inverted `.svg` (named with
+an `-inverted` suffix, still a real `.svg` file). In a normal SVG, the
+dark modules are combined into one `<path>` sitting on a plain background
+`<rect>` -- one selectable shape to grab in Inkscape. `isvg` swaps which
+side gets to be the combined path: it unions every *light* cell plus the
+quiet zone instead, so selecting that path targets the material to
+burn/cut away, leaving the dark modules as the untouched result. The
+colors look the same on screen either way -- only the SVG's internal
+structure changes, which is why this only applies to `svg`/`isvg`, not
+`png`/`jpg`.
 
 ## Config reference
 
@@ -50,7 +66,7 @@ See `config.example.toml` for the full commented template. Summary:
 |             | `version`           | `"auto"` or `1`-`40` -- QR grid density/data capacity, not pixel size    |
 |             | `border`            | Quiet zone width in modules (spec minimum is 4)                          |
 | `[image]`   | `dimensions`        | Output pixel size (square) -- value or list                              |
-|             | `format`            | `svg`, `png`, `jpg` -- value or list                                     |
+|             | `format`            | `svg`, `isvg`, `png`, `jpg` -- value or list                             |
 |             | `foreground_color`  | Color name or hex code                                                   |
 |             | `background_color`  | Color name, hex code, or `"transparent"` (svg/png only)                  |
 |             | `output_filename`   | Base filename; blank auto-generates one from the URL                     |

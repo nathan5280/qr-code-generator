@@ -2,11 +2,12 @@
 """Generate an SVG/PNG/JPG QR code from a config.toml file.
 
 Usage:
-    python qr_gen.py /path/to/output/directory
+    python qr_gen.py /path/to/qr/directory
 
 The directory must contain a config.toml (see config.example.toml for the
-template). The generated image is written into that same directory, next
-to the config file.
+template). Generated images are written to an output/ subdirectory next
+to the config file, so the config can be tracked in git without the
+generated images going along with it.
 """
 
 import argparse
@@ -93,7 +94,10 @@ def slugify_url(url: str) -> str:
 def build_output_path(directory, output_filename, url, error_correction, dimension, padding_enabled, fmt):
     base = output_filename if output_filename else slugify_url(url)
     padded_label = "padded" if padding_enabled else "not_padded"
-    return directory / f"{base}-{error_correction}-{dimension}-{padded_label}.{fmt}"
+    # isvg is a real .svg file -- "isvg" only marks the inverted path/rect
+    # structure (see render_svg); it isn't a format a viewer would know.
+    inverted_label, extension = ("-inverted", "svg") if fmt == "isvg" else ("", fmt)
+    return directory / f"{base}-{error_correction}-{dimension}-{padded_label}{inverted_label}.{extension}"
 
 
 def resolve_color(value: str, need_alpha: bool):
@@ -110,25 +114,52 @@ def resolve_color(value: str, need_alpha: bool):
     return (*rgb, 255) if need_alpha else rgb
 
 
-def render_svg(grid, dimensions, fg_color, bg_color) -> str:
+def union_path_d(grid, want_dark, module_px) -> str:
+    """Build one SVG path 'd' string covering every cell matching want_dark.
+
+    Each matching cell contributes its own rectangle subpath, so the
+    result renders identically to one <rect> per cell but is a single
+    <path> element -- one selectable object in Inkscape instead of
+    hundreds of individual rects.
+    """
+    grid_size = len(grid)
+    subpaths = []
+    for row in range(grid_size):
+        for col in range(grid_size):
+            if grid[row][col] == want_dark:
+                x = col * module_px
+                y = row * module_px
+                subpaths.append(f"M{x:.3f},{y:.3f} h{module_px:.3f} v{module_px:.3f} h{-module_px:.3f} Z")
+    return " ".join(subpaths)
+
+
+def render_svg(grid, dimensions, fg_color, bg_color, invert=False) -> str:
     # SVG understands color names, hex codes, and the "transparent"
     # keyword natively, so the config strings can be passed straight
     # through as fill attributes -- no color resolution needed here.
+    #
+    # Normal: the whole-canvas rect is the background, and the dark
+    # modules are the combined path -- the one you'd select in Inkscape
+    # to cut/engrave the QR's own shape.
+    #
+    # Inverted (invert=True): the roles of "simple whole-canvas rect"
+    # and "combined selectable path" swap sides -- the path now unions
+    # every light cell (module gaps *and* the quiet zone), so that's
+    # the one shape to select when you want to cut/burn away everything
+    # except the dark modules, instead of the modules themselves.
     grid_size = len(grid)
     module_px = dimensions / grid_size
+    base_color = fg_color if invert else bg_color
+    path_color = bg_color if invert else fg_color
+    path_d = union_path_d(grid, not invert, module_px)
+
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{dimensions}" height="{dimensions}" '
         f'viewBox="0 0 {dimensions} {dimensions}">',
-        f'<rect width="{dimensions}" height="{dimensions}" fill="{bg_color}"/>',
+        f'<rect width="{dimensions}" height="{dimensions}" fill="{base_color}"/>',
     ]
-    for row in range(grid_size):
-        for col in range(grid_size):
-            if grid[row][col]:
-                x = col * module_px
-                y = row * module_px
-                parts.append(
-                    f'<rect x="{x:.3f}" y="{y:.3f}" width="{module_px:.3f}" height="{module_px:.3f}" fill="{fg_color}"/>'
-                )
+    if path_d:
+        parts.append(f'<path d="{path_d}" fill="{path_color}"/>')
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -177,6 +208,11 @@ def main():
     bg_color = image_cfg.get("background_color", "white")
     output_filename = image_cfg.get("output_filename", "")
 
+    # Generated images are "compiled" artifacts, not source -- keep them
+    # out of the directory git tracks the config.toml in.
+    output_dir = args.directory / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     padding_enabled_list = as_list(padding_cfg.get("enabled", False))
     padding_width = padding_cfg.get("width", 0)
     seed = padding_cfg.get("seed", 0)
@@ -193,10 +229,12 @@ def main():
             for dimension in dimensions_list:
                 for fmt in format_list:
                     output_path = build_output_path(
-                        args.directory, output_filename, url, error_correction, dimension, padding_enabled, fmt
+                        output_dir, output_filename, url, error_correction, dimension, padding_enabled, fmt
                     )
                     if fmt == "svg":
                         output_path.write_text(render_svg(grid, dimension, fg_color, bg_color))
+                    elif fmt == "isvg":
+                        output_path.write_text(render_svg(grid, dimension, fg_color, bg_color, invert=True))
                     elif fmt in ("png", "jpg", "jpeg"):
                         need_alpha = fmt == "png"
                         try:
@@ -208,7 +246,7 @@ def main():
                         img = render_raster(grid, dimension, fg, bg, mode)
                         img.save(output_path, format="PNG" if fmt == "png" else "JPEG")
                     else:
-                        sys.exit(f"config.toml: [image].format must be svg, png, or jpg (got {fmt!r})")
+                        sys.exit(f"config.toml: [image].format must be svg, isvg, png, or jpg (got {fmt!r})")
 
                     print(f"Wrote {output_path}")
 
