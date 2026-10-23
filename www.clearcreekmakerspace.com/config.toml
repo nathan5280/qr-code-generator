@@ -1,0 +1,43 @@
+# Copy this file to config.toml in the directory you'll pass to qr_gen.py.
+# Generated images are written to an output/ subdirectory next to it
+# (gitignored -- config.toml is the thing worth tracking, not the
+# "compiled" images).
+#
+# error_correction, dimensions, format, and padding.enabled can each be a
+# single value or a list -- when any are lists, qr_gen.py generates every
+# combination (e.g. 2 formats x 2 dimensions x 2 padding settings = 8
+# files) so you can build a matched family of QR codes from one config.
+
+[qr]
+url = "www.clearcreekmakerspace.com"
+error_correction = "M"   # L, M, Q, H -- higher survives more damage/dirt but makes the code denser -- or a list, e.g. ["M", "H"]
+version = "auto"         # "auto" picks the smallest version (module count/density) that fits the url, or set 1-40
+border = 4                # quiet zone width in modules -- 4 is the QR spec's minimum, don't go lower
+
+[image]
+dimensions = 600            # output image is square, this many pixels per side -- or a list, e.g. [300, 600, 1200]
+format = ["svg, isvg"]               # svg, isvg, png, jpg -- or a list, e.g. ["svg", "isvg", "png"]
+foreground_color = "black"   # any CSS color name or hex code, e.g. "#1a1a1a"
+background_color = "white"   # same as above, or "transparent" (svg/png only -- jpg has no alpha channel)
+
+# Base filename. Blank ("") auto-generates one from the URL; either way,
+# every file is written as <base>-<error_correction>-<dimensions>-<padded|not_padded>[-inverted].<format>
+# so a whole family can share one directory without collisions, e.g.:
+#   https-example-com-M-600-not_padded.svg
+#   https-example-com-M-600-not_padded-inverted.svg
+#   https-example-com-M-600-not_padded.png
+output_filename = ""
+
+[padding]
+enabled = false   # set true for a decorative "more QR content" ring outside the quiet zone -- or a list, e.g. [true, false]
+width = 4          # extra modules of fake pattern beyond the quiet zone (ignored by scanners)
+seed = 42          # controls the fake pattern so re-running with the same config reproduces the same image
+
+# isvg is a real .svg file -- "isvg" just marks that it's built inverted
+# for cutting/engraving workflows. In a normal svg, the dark modules are
+# combined into one selectable <path> (easy to grab in Inkscape) sitting
+# on a plain background rect. isvg swaps which side is which: the <path>
+# instead unions every light cell plus the quiet zone, so selecting it
+# targets the material you want to burn/cut away, leaving the dark
+# modules untouched. On-screen the colors look the same either way --
+# only the SVG's internal structure differs. Not meaningful for png/jpg.
